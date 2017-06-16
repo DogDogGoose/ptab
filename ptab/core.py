@@ -8,16 +8,6 @@ import os
 #
 # PTAB API
 # 
-# filingParty	: {petitioner, patent_owner, board, potential_patent_owner}
-# trialNumber	: e.g., IPR2016-00037, CBM2014-22245.
-# type		: {notice, Mandatory Notice, motion, opposition, power of attorney, rehearing request, order, Judge Working File, Petion, etc.}
-# filingDatetime : Filters by the date (YYYY-MM-DD) a document was filed.
-# filingDatetimeFrom	
-# filingDatetimeTo	
-#
-# Example URL
-# https://ptabdata.uspto.gov/ptab-api/documents?filingParty=sony&type=motion
-#
 docsURL = 'https://ptabdata.uspto.gov/ptab-api/documents'
 trialsURL = 'https://ptabdata.uspto.gov/ptab-api/trials/'
 postfixdocs = '/documents'
@@ -39,6 +29,7 @@ class ptabgrab(object):
 		self.verbose = verbose
 		self.verify = False
 		self.outdir = ''
+		self.download = True
 		requests.packages.urllib3.disable_warnings()
 
 	def __str__(self):
@@ -51,7 +42,7 @@ class ptabgrab(object):
 
 		self.outdir = newodir
 		return
-
+	
 	# TODO
 	def setCertificate(certpath):
 		# check path
@@ -67,11 +58,14 @@ class ptabgrab(object):
 		if self.verbose:
 			print "Downloading (%s)" % outfile
 
-		r = requests.get(fileurl, stream=True, verify=self.verify)
-		if r.status_code == 200:
-			with open(outfile, 'wb') as f:
-				r.raw.decode_content = True
-				shutil.copyfileobj(r.raw, f)        
+		if self.download:
+			r = requests.get(fileurl, stream=True, verify=self.verify)
+			if r.status_code == 200:
+				with open(outfile, 'wb') as f:
+					r.raw.decode_content = True
+					shutil.copyfileobj(r.raw, f)        
+		else:
+			print "Downloads Disabled: URL <%s>" % fileurl	
 
 		return 1
 
@@ -101,6 +95,7 @@ class ptabgrab(object):
 			return 0
 		else:
 			return requests.get(targetUrl, verify=self.verify)
+
 
 	def parseJson(self, jsonstr):
 		parsedjson = json.loads(jsonstr)

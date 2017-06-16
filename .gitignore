@@ -1,0 +1,2 @@
+# ignore temporary directory, often used for downloading files during test
+temp/
