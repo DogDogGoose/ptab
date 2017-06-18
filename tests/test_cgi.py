@@ -6,6 +6,7 @@ if __name__ == '__main__' and __package__ is None:
     sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
 import ptab.cgi
+import ptab.core
 
 goodPairs = {
 	'trialNumber' : '2016-12345',
@@ -13,11 +14,17 @@ goodPairs = {
 	}
 
 testbuilder = ptab.cgi.builder()
-if testbuilder.addArgument('trialNumber', '2016-12345'):
-	print "Added."
 
-if testbuilder.addArgument('filingParty', 'petitioner'):
-	print "Added."
+for key, val in goodPairs.iteritems():
+	if testbuilder.addArgument(key, val):
+		print "Added (%s : %s)." % (key, val)
+	else:
+		print "ERROR: FAILED TO ADD (%s : %s)." % (key, val) 
 
 print testbuilder.getCGIStr()
+
+grabber = ptab.core.ptabgrab()
+grabber.verbose = True
+print grabber.buildDocsUrl(goodPairs)
+
 

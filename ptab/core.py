@@ -5,6 +5,8 @@ import json
 import shutil
 import os
 
+import cgi
+
 #
 # PTAB API
 # 
@@ -79,11 +81,14 @@ class ptabgrab(object):
 
 		return targetUrl
 
-	# TODO
-	def buildDocsURl(self):
-		targetUrl = ""
-		return targetUrl
-
+	def buildDocsUrl(self, filterarguments):
+		testbuilder = cgi.builder()
+		for key, val in filterarguments.iteritems():
+			if testbuilder.addArgument(key, val):
+				if self.verbose: print "Added (%s : %s)." % (key, val)
+			else:
+				print "ERROR: FAILED TO ADD (%s : %s)." % (key, val) 
+		return docsURL + testbuilder.getCGIStr()
 
 	def curlJson(self, targetUrl):
 		if self.verbose:
@@ -97,7 +102,7 @@ class ptabgrab(object):
 			return requests.get(targetUrl, verify=self.verify)
 
 
-	def parseJson(self, jsonstr):
+	def downloadJsonLinks(self, jsonstr):
 		parsedjson = json.loads(jsonstr)
 		for document in parsedjson['results']:
 			fname_raw = document['documentNumber'] + " - " + document['title']
@@ -117,7 +122,22 @@ class ptabgrab(object):
 			
 	def getDocsInDocket(self, dktnum):
 		results = self.curlJson( self.buildTrialsUrl(dktnum) )
-		numDocs = self.parseJson(results.text)
+		numDocs = self.downloadJsonLinks(results.text)
+
+		if self.verbose:
+			print "Found %s documents." % numDocs
+
+		return
+	
+	def searchDocuments(self, filterarguments):
+		targetUrl = self.buildDocsUrl(filterarguments)
+
+		if self.verbose:
+			print "Using search string:"
+			print "\t" + targetUrl
+
+		results = self.curlJson(targetUrl)
+		numDocs = self.downloadJsonLinks(results.text)
 
 		if self.verbose:
 			print "Found %s documents." % numDocs
