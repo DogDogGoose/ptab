@@ -10,8 +10,8 @@ if __name__ == '__main__' and __package__ is None:
 import ptab.core
 
 goodPairs = {
-	'trialNumber' : '2016-12345',
-	'filingParty' : 'petitioner'
+	'trialNumber' : '2016-01183',
+	'filingParty' : 'patent_owner'
 	}
 
 ###########################
