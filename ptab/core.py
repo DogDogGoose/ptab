@@ -4,6 +4,7 @@ import string
 import json
 import shutil
 import os
+import re
 
 import cgi
 
@@ -77,7 +78,15 @@ class ptabgrab(object):
 		return 1
 
 	def buildTrialsUrl(self, dktnum, zip=False):
-		docketstr = "IPR" + dktnum
+
+		
+		docketstr = ''
+		if re.search(r'(IPR|CBM)20\d{2}-\d{5}', dktnum):
+			docketstr = dktnum
+		else:
+			# default to IPR over CBM
+			docketstr = "IPR" + dktnum
+
 		targetUrl = trialsURL + docketstr
 		if zip:
 			targetUrl += postfixdoczip
@@ -109,7 +118,12 @@ class ptabgrab(object):
 
 	def downloadJsonLinks(self, jsonstr):
 		parsedjson = json.loads(jsonstr)
-		for document in parsedjson['results']:
+		results = parsedjson.get('results')
+
+		if (results is None):
+			return 0
+
+		for document in results:
 			fname_raw = document['documentNumber'] + " - " + document['title']
 			fname = string.replace(fname_raw, '.', '') + ".pdf"
 
@@ -118,10 +132,12 @@ class ptabgrab(object):
 		
 			for link in document['links']:
 				if link['rel'] == 'download':
-					if self.verbose:
-						print "\tURL <%s>" % link['href']
+					# account for an error in formatting that sometimes appears in the ptab json feed
+					docurlstr = re.sub(r'ptab-api[\\/]+ptab-api', 'ptab-api', link['href'])
 
-					self.curlFile(link['href'], fname)
+					if self.verbose:
+						print "\tURL <%s>" % docurlstr
+					self.curlFile(docurlstr, fname)
 
 		return len (parsedjson['results'])
 			
