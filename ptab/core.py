@@ -57,8 +57,13 @@ class ptabgrab(object):
 
 	def curlFile(self, fileurl, filename):
 		outfile = self.outdir + filename
+
 		if self.verbose:
-			print "Downloading (%s)" % outfile
+			print "\tDownloading (%s)" % outfile
+
+		if os.path.exists(outfile):
+			print "\tSKIPPING: %s already exists!" % outfile
+			return 0
 
 		if self.download:
 			r = requests.get(fileurl, stream=True, verify=self.verify)
