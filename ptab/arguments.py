@@ -50,7 +50,7 @@ class argTrialNumber(ptoArgument):
 		if match is None:
 			teststr = 'IPR' + teststr
 
-		regexCheckDocket = r"^IPR20\d{2}-\d{5}"
+		regexCheckDocket = r"^(IPR|CBM)20\d{2}-\d{5}"
 		match = re.search(regexCheckDocket, teststr)
 		if match is None:
 			return ''

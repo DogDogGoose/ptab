@@ -13,6 +13,7 @@ import cgi
 # 
 docsURL = 'https://ptabdata.uspto.gov/ptab-api/documents'
 trialsURL = 'https://ptabdata.uspto.gov/ptab-api/trials/'
+
 postfixdocs = '/documents'
 postfixdoczip = '/documents.zip'
 # ptabcert = "~/scripts/ptab/ptab.pem"
@@ -33,6 +34,7 @@ class ptabgrab(object):
 		self.verify = False
 		self.outdir = ''
 		self.download = True
+		self.dumpJson = False
 		requests.packages.urllib3.disable_warnings()
 
 	def __str__(self):
@@ -77,9 +79,26 @@ class ptabgrab(object):
 
 		return 1
 
-	def buildTrialsUrl(self, dktnum, zip=False):
+	def getDocumentListURL (self, dktnum):
+		#
+		# Old way just used the trialsURL to get the document list.
+		# However, it seems like there are some issues with that part of the 
+		# PTAB interface
+		#
+		# return self.buildTrialsUrl(dktnum);
 
-		
+		# default to IPR over CBM
+		docketstr = dktnum if re.search(r'(IPR|CBM)20\d{2}-\d{5}', dktnum) else ("IPR" + dktnum)
+
+		cgimaker = cgi.builder()
+		if not cgimaker.addArgument('trialNumber', docketstr):
+			print "\tERROR: improper docket %s" % docketstr
+			return ''
+
+		return docsURL + cgimaker.getCGIStr()
+		# https://ptabdata.uspto.gov/ptab-api/documents?trialNumber=IPR2017-01082
+
+	def buildTrialsUrl(self, dktnum, zip=False):
 		docketstr = ''
 		if re.search(r'(IPR|CBM)20\d{2}-\d{5}', dktnum):
 			docketstr = dktnum
@@ -88,10 +107,15 @@ class ptabgrab(object):
 			docketstr = "IPR" + dktnum
 
 		targetUrl = trialsURL + docketstr
+
 		if zip:
 			targetUrl += postfixdoczip
 		else:
 			targetUrl += postfixdocs
+
+		# add a high limit to the results
+		# TODO: add iterative paging functionality using offset to page through results
+		# targetUrl += "?limit=100"
 
 		return targetUrl
 
@@ -120,6 +144,11 @@ class ptabgrab(object):
 		parsedjson = json.loads(jsonstr)
 		results = parsedjson.get('results')
 
+		if (self.dumpJson):
+			text_file = open("JSONdump.txt", "w")
+			text_file.write(jsonstr)
+	  		text_file.close()
+
 		if (results is None):
 			return 0
 
@@ -142,7 +171,7 @@ class ptabgrab(object):
 		return len (parsedjson['results'])
 			
 	def getDocsInDocket(self, dktnum):
-		results = self.curlJson( self.buildTrialsUrl(dktnum) )
+		results = self.curlJson( self.getDocumentListURL(dktnum) )
 		numDocs = self.downloadJsonLinks(results.text)
 
 		if self.verbose:
