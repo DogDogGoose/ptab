@@ -96,7 +96,6 @@ class ptabgrab(object):
 			return ''
 
 		return docsURL + cgimaker.getCGIStr()
-		# https://ptabdata.uspto.gov/ptab-api/documents?trialNumber=IPR2017-01082
 
 	def buildTrialsUrl(self, dktnum, zip=False):
 		docketstr = ''
