@@ -59,7 +59,7 @@ class ptabgrab(object):
 		return 0
 
 	def curlFile(self, fileurl, filename):
-		outfile = self.outdir + filename
+		outfile = self.outdir + filename.replace('/', '-')
 
 		if self.verbose:
 			print "\tDownloading (%s)" % outfile
@@ -80,22 +80,22 @@ class ptabgrab(object):
 		return 1
 
 	def getDocumentListURL (self, dktnum):
+		return self.buildTrialsUrl(dktnum);
+
 		#
-		# Old way just used the trialsURL to get the document list.
-		# However, it seems like there are some issues with that part of the 
-		# PTAB interface
+		# Alternative way to search dockets. This sometimes works better, 
+		# though the PTAB interface for both trials and documents can be flaky.
 		#
-		# return self.buildTrialsUrl(dktnum);
 
 		# default to IPR over CBM
-		docketstr = dktnum if re.search(r'(IPR|CBM)20\d{2}-\d{5}', dktnum) else ("IPR" + dktnum)
+		# docketstr = dktnum if re.search(r'(IPR|CBM)20\d{2}-\d{5}', dktnum) else ("IPR" + dktnum)
 
-		cgimaker = cgi.builder()
-		if not cgimaker.addArgument('trialNumber', docketstr):
-			print "\tERROR: improper docket %s" % docketstr
-			return ''
+		# cgimaker = cgi.builder()
+		# if not cgimaker.addArgument('trialNumber', docketstr):
+			# print "\tERROR: improper docket %s" % docketstr
+			# return ''
 
-		return docsURL + cgimaker.getCGIStr()
+		# return docsURL + cgimaker.getCGIStr()
 
 	def buildTrialsUrl(self, dktnum, zip=False):
 		docketstr = ''
