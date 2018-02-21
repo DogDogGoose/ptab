@@ -14,7 +14,7 @@ import ptab.core
 ###########################
 # Main
 ###########################
-print "Running basic test..."
+print ("Running basic test...")
 
 parser = argparse.ArgumentParser(description='Grab and properly name documents from PTAB dockets.')
 parser.add_argument('--verbose', '-v', type=bool, default=True, help='Wow much talk.', dest='verbose')
