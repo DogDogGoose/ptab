@@ -4,6 +4,8 @@
 
 import re
 	
+PTAB_MAX_LIMIT = 100
+
 class ptoArgument(object):
 
 	def factory(classtype):
@@ -15,13 +17,16 @@ class ptoArgument(object):
 		if adjustedType.upper() == "ARGFILINGDATETIME" : return argFilingDatetime()
 		if adjustedType.upper() == "ARGFILINGDATETIMEFROM" : return argFilingDatetimeFrom()
 		if adjustedType.upper() == "ARGFILINGDATETIMETO" : return argFilingDatetimeTo()
+		if adjustedType.upper() == "ARGFILINGDATEFROM" : return argFilingDateFrom()
+		if adjustedType.upper() == "ARGLIMIT" : return argLimit()
+		if adjustedType.upper() == "ARGOFFSET" : return argOffset()
 
 		assert 0, "Bad argument creation: " + classtype
 
 	factory = staticmethod(factory)
 
 	def __str__(self):
-		return self.argument + '=' + self.value
+		return self.argument + '=' + str(self.value)
 	
 	def __init__(self):
 		self.argument = ''
@@ -33,6 +38,31 @@ class ptoArgument(object):
 		self.value = value
 		return 1
 	
+class argFilingDateFrom(ptoArgument):
+	def __init__(self):
+		self.argument = 'filingDateFrom'
+		self.value = ''
+
+class argLimit(ptoArgument):
+	def __init__(self):
+		self.argument = 'limit'
+		self.value = ''
+
+        def setValue(self, value):
+                if not value:
+                    self.value = PTAB_MAX_LIMIT
+
+                if (value > PTAB_MAX_LIMIT):
+                    self.value = PTAB_MAX_LIMIT
+                else:
+                    self.value = value
+
+
+class argOffset(ptoArgument):
+	def __init__(self):
+		self.argument = 'offset'
+		self.value = ''
+
 class argFilingParty(ptoArgument):
 	def __init__(self):
 		self.argument = 'filingParty'

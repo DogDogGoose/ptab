@@ -5,6 +5,7 @@ import json
 import shutil
 import os
 import re
+import pprint
 
 import cgi
 
@@ -13,6 +14,7 @@ import cgi
 # 
 docsURL = 'https://ptabdata.uspto.gov/ptab-api/documents'
 trialsURL = 'https://ptabdata.uspto.gov/ptab-api/trials/'
+dateURL = 'https://ptabdata.uspto.gov/ptab-api/trials?'
 
 postfixdocs = '/documents'
 postfixdoczip = '/documents.zip'
@@ -139,7 +141,7 @@ class ptabgrab(object):
         else:
             try:
                 result = requests.get(targetUrl, verify=self.verify)
-                print ("Got result (%s)" % result)
+                print ("Curl got result (%s)" % result)
             except ValueError:
                 print ("ERROR: Could Not access URL.")
 
@@ -195,8 +197,7 @@ class ptabgrab(object):
         targetUrl = self.buildDocsUrl(filterarguments)
 
         if self.verbose:
-            print ("Using search string:")
-            print ("\t" + targetUrl)
+            print ("Using search string:" + "\t" + targetUrl)
 
         results = self.curlJson(targetUrl)
         if results:
@@ -209,4 +210,73 @@ class ptabgrab(object):
             print ("Found %s documents." % numDocs)
 
         return
+
+    def locateDocketsByParty(self, partyname, earliestfilingdate):
+        searchDateUrl = self.buildDateUrl(earliestfilingdate)
+        if self.verbose:
+            print ("Using search string:" + "\t" + searchDateUrl)
+
+        results = self.curlJson(searchDateUrl)
+        if results:
+            dockets = self.filterJsonResultsByParty(results.text, partyname)
+
+        else:
+            print ("ERROR: Could not read URL")
+            return
+
+        if self.verbose:
+            print ("Found %s dockets." % dockets)
+
+        return
+
+    def buildDateUrl(self, earliestfilingdate, offset=0):
+        if not earliestfilingdate:
+            earliestfilingdate = "2012-09-16" # enactment date
+
+        searchObj = re.search( r'^\d{4}-\d{2}-\d{2}$', earliestfilingdate, re.I)
+        if searchObj:
+            print ("Using earliest filing date of %s" % earliestfilingdate)
+        else:
+            searchObj = re.search( r'^\d{4}$', earliestfilingdate, re.I)
+            if searchObj:
+                year = earliestfilingdate
+                earliestfilingdate = year + "-01-01"
+                print ("Year %s provided; using earliest filing date of %s" % (year, earliestfilingdate))
+
+            else:
+                print ("ERROR: Invalid starting date (%s)" % earliestfilingdate)
+
+        querybuilder = cgi.builder()
+        querybuilder.addArgument('filingDateFrom', earliestfilingdate)
+        querybuilder.addArgument('limit')
+        querybuilder.addArgument('offset', offset)
+
+        return dateURL + querybuilder.getCGIStr()
+
+    ########
+    def filterJsonResultsByParty(self, jsonstr, partyname):
+        parsedjson = json.loads(jsonstr)
+        results = parsedjson.get('results')
+
+        if (self.dumpJson):
+                    text_file = open("JSONdump.txt", "w")
+                    text_file.write(jsonstr)
+                    text_file.close()
+
+        if (results is None):
+            return []
+
+        # A more elegant way to filter, but it's not guaranteed that there is a patent owner or petitioner name...?
+        filteredlist = filter(lambda x: re.search(r'' + re.escape(partyname), x.get('petitionerPartyName', '') + x.get('patentOwnerName', ''), re.IGNORECASE), results)
+
+        # Safer filter function
+        for proceeding in filteredlist:
+            petitionerNameRaw = proceeding.get('petitionerPartyName', '[OMITTED]') 
+            poNameRaw = proceeding.get('patentOwnerName', '[OMITTED]') 
+            trialNumber = proceeding.get('trialNumber')
+            status = proceeding.get('prosecutionStatus')
+        
+            print ("* %s v %s (%s)" % (petitionerNameRaw, poNameRaw, trialNumber))
+
+        return len (parsedjson['results'])
 

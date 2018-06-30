@@ -21,7 +21,7 @@ class builder(object):
 	def __init__(self):
 		self.arguments = []
 
-	def addArgument(self, arg, value):
+	def addArgument(self, arg, value=''):
 		newobj = arguments.ptoArgument.factory(arg)
 		newobj.setValue(value)
 
