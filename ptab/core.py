@@ -14,7 +14,7 @@ import cgi
 # 
 docsURL = 'https://ptabdata.uspto.gov/ptab-api/documents'
 trialsURL = 'https://ptabdata.uspto.gov/ptab-api/trials/'
-dateURL = 'https://ptabdata.uspto.gov/ptab-api/trials?'
+dateURL = 'https://ptabdata.uspto.gov/ptab-api/trials'
 
 postfixdocs = '/documents'
 postfixdoczip = '/documents.zip'
@@ -42,6 +42,9 @@ class ptabgrab(object):
     def __str__(self):
         return "%s documents found." % self.getNumDocs()
 
+    def getOutputDir(self):
+        return self.outdir
+
     def setOutputDir(self, odir):
         newodir = os.path.join(odir, '')
         if not os.path.isdir(newodir):
@@ -61,7 +64,8 @@ class ptabgrab(object):
         return 0
 
     def curlFile(self, fileurl, filename):
-        outfile = self.outdir + filename.replace('/', '-')
+        asciiFilename = filename.encode('ascii', 'ignore')
+        outfile = self.outdir + asciiFilename.replace('/', '-')
 
         if self.verbose:
             print ("\tDownloading (%s)" % outfile)
@@ -154,7 +158,7 @@ class ptabgrab(object):
 
         if (self.dumpJson):
                     text_file = open("JSONdump.txt", "w")
-                    text_file.write(jsonstr)
+                    text_file.write(jsonstr.encode('ascii', 'ignore'))
                     text_file.close()
 
         if (results is None):
@@ -211,24 +215,53 @@ class ptabgrab(object):
 
         return
 
-    def locateDocketsByParty(self, partyname, earliestfilingdate):
-        searchDateUrl = self.buildDateUrl(earliestfilingdate)
+
+    # 
+    # Main access point. Gets all dockets with a certain party as petitioner or po
+    #
+    def getDocketsByParty(self, partyname, earliestfilingdate):
+        dockets = self.locateDocketsByParty(partyname, earliestfilingdate)
+
+        baseOutDir = self.getOutputDir()
+
+        for dock in dockets:
+            (petitioner, patentowner, dkt, status) = dock[0:4]
+            print ("* {0} v {1} ({2}) - {3}".format(petitioner, patentowner, dkt, status))
+
+            #self.setOutputDir(os.path.join(baseOutDir, dkt))
+            newdir = os.path.join(baseOutDir, dkt.encode('ascii', 'ignore'))
+            self.setOutputDir(newdir)
+            self.getDocsInDocket(dkt)
+
+    # 
+    # Locates all dockets with a certain party as petitioner or po
+    # Recursive
+    # 
+    def locateDocketsByParty(self, partyname, earliestfilingdate, offset=0):
+        searchDateUrl = self.buildDateUrl(earliestfilingdate, offset)
         if self.verbose:
             print ("Using search string:" + "\t" + searchDateUrl)
 
         results = self.curlJson(searchDateUrl)
         if results:
-            dockets = self.filterJsonResultsByParty(results.text, partyname)
+            dockets = []
+            (totalCount, nextOffset) = self.filterJsonResultsByParty(results.text, partyname, dockets)
+
+            # This is how we know we have more to do
+            if (totalCount >= nextOffset):
+                newDockets = self.locateDocketsByParty(partyname, earliestfilingdate, offset=nextOffset)
+                if (len(newDockets) > 0):
+                    dockets += newDockets
+
+            return dockets
 
         else:
             print ("ERROR: Could not read URL")
-            return
+            return []
 
-        if self.verbose:
-            print ("Found %s dockets." % dockets)
-
-        return
-
+    #
+    # Makes a date query for ptab API
+    # 
     def buildDateUrl(self, earliestfilingdate, offset=0):
         if not earliestfilingdate:
             earliestfilingdate = "2012-09-16" # enactment date
@@ -253,30 +286,40 @@ class ptabgrab(object):
 
         return dateURL + querybuilder.getCGIStr()
 
-    ########
-    def filterJsonResultsByParty(self, jsonstr, partyname):
+    #
+    # takes a JSON list from the all trials query, filters by party name
+    #
+    def filterJsonResultsByParty(self, jsonstr, partyname, dockets):
         parsedjson = json.loads(jsonstr)
         results = parsedjson.get('results')
+        numResults = len(results)
 
         if (self.dumpJson):
                     text_file = open("JSONdump.txt", "w")
-                    text_file.write(jsonstr)
+                    text_file.write(jsonstr.encode('ascii', 'ignore'))
                     text_file.close()
 
         if (results is None):
             return []
 
-        # A more elegant way to filter, but it's not guaranteed that there is a patent owner or petitioner name...?
         filteredlist = filter(lambda x: re.search(r'' + re.escape(partyname), x.get('petitionerPartyName', '') + x.get('patentOwnerName', ''), re.IGNORECASE), results)
 
-        # Safer filter function
+        # consider changing this loop to a map function
         for proceeding in filteredlist:
             petitionerNameRaw = proceeding.get('petitionerPartyName', '[OMITTED]') 
             poNameRaw = proceeding.get('patentOwnerName', '[OMITTED]') 
             trialNumber = proceeding.get('trialNumber')
             status = proceeding.get('prosecutionStatus')
         
-            print ("* %s v %s (%s)" % (petitionerNameRaw, poNameRaw, trialNumber))
+            # print ("* %s v %s (%s) - %s" % (petitionerNameRaw, poNameRaw, trialNumber, status))
+            dockets.append([petitionerNameRaw, poNameRaw, trialNumber, status])
+        
+        # Now figure out how many items are left
+        meta = parsedjson.get('metadata')
+        currentLimit = meta.get("limit")
+        currentOffset = meta.get("offset")
+        currentCount = meta.get("count")
 
-        return len (parsedjson['results'])
+        print ("Limit (%s), Offset (%s), Count (%s)" % (currentLimit, currentOffset, currentCount))
 
+        return (currentCount, currentOffset + currentLimit)
