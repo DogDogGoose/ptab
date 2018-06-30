@@ -63,8 +63,12 @@ class ptabgrab(object):
     def getNumDocs():
         return 0
 
+    # 
+    # curlFile
+    # used to save files
+    #
     def curlFile(self, fileurl, filename):
-        outfile = self.outdir + str(filename.replace('/', '-').encode('utf-8', 'ignore'), 'utf-8', 'ignore')
+        outfile = self.outdir + str(filename.replace('/', '-').replace('"', '').replace("'", "").encode('utf-8', 'ignore'), 'utf-8', 'ignore')
 
         if self.verbose:
             print ("\tDownloading (%s)" % outfile)
