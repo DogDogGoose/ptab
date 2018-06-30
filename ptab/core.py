@@ -7,7 +7,7 @@ import os
 import re
 import pprint
 
-import cgi
+import ptab.cgi
 
 #
 # PTAB API
@@ -64,8 +64,7 @@ class ptabgrab(object):
         return 0
 
     def curlFile(self, fileurl, filename):
-        asciiFilename = filename.encode('ascii', 'ignore')
-        outfile = self.outdir + asciiFilename.replace('/', '-')
+        outfile = self.outdir + str(filename.replace('/', '-').encode('utf-8', 'ignore'), 'utf-8', 'ignore')
 
         if self.verbose:
             print ("\tDownloading (%s)" % outfile)
@@ -125,7 +124,7 @@ class ptabgrab(object):
         return targetUrl
 
     def buildDocsUrl(self, filterarguments):
-        testbuilder = cgi.builder()
+        testbuilder = ptab.cgi.builder()
         for key, val in filterarguments.iteritems():
             if testbuilder.addArgument(key, val):
                 if self.verbose: print ("Added (%s : %s)." % (key, val))
@@ -228,8 +227,7 @@ class ptabgrab(object):
             (petitioner, patentowner, dkt, status) = dock[0:4]
             print ("* {0} v {1} ({2}) - {3}".format(petitioner, patentowner, dkt, status))
 
-            #self.setOutputDir(os.path.join(baseOutDir, dkt))
-            newdir = os.path.join(baseOutDir, dkt.encode('ascii', 'ignore'))
+            newdir = os.path.join(baseOutDir, str(dkt.encode('utf-8', 'ignore'), 'utf-8', 'ignore'))
             self.setOutputDir(newdir)
             self.getDocsInDocket(dkt)
 
@@ -279,7 +277,7 @@ class ptabgrab(object):
             else:
                 print ("ERROR: Invalid starting date (%s)" % earliestfilingdate)
 
-        querybuilder = cgi.builder()
+        querybuilder = ptab.cgi.builder()
         querybuilder.addArgument('filingDateFrom', earliestfilingdate)
         querybuilder.addArgument('limit')
         querybuilder.addArgument('offset', offset)

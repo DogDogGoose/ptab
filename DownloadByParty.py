@@ -5,11 +5,10 @@ import argparse
 #
 if __name__ == '__main__' and __package__ is None:
     from os import sys, path
-    sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
+    print(path.dirname(path.abspath(__file__)))
+    sys.path.append(path.dirname(path.abspath(__file__)))
 
 import ptab.core
-
-# dockets = ['2016-01183']
 
 ###########################
 # Main

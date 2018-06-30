@@ -12,7 +12,7 @@
 # https://ptabdata.uspto.gov/ptab-api/documents?filingParty=sony&type=motion
 #
 
-import arguments
+import ptab.arguments
 
 class builder(object):
 	"""
@@ -22,7 +22,7 @@ class builder(object):
 		self.arguments = []
 
 	def addArgument(self, arg, value=''):
-		newobj = arguments.ptoArgument.factory(arg)
+		newobj = ptab.arguments.ptoArgument.factory(arg)
 		newobj.setValue(value)
 
 		if (newobj):
