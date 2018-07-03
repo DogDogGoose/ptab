@@ -1,2 +1,9 @@
 # ignore temporary directory, often used for downloading files during test
 temp/
+
+# ignore vim saves
+*~
+
+# ignore temporary project files
+*__pycache__*
+*JSONdump.txt

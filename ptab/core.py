@@ -6,6 +6,7 @@ import shutil
 import os
 import re
 import pprint
+import pathvalidate
 
 import ptab.cgi
 
@@ -68,19 +69,20 @@ class ptabgrab(object):
     # used to save files
     #
     def curlFile(self, fileurl, filename):
-        outfile = self.outdir + str(filename.replace('/', '-').replace('"', '').replace("'", "").encode('utf-8', 'ignore'), 'utf-8', 'ignore')
+        rawout = str(filename.replace('/', '-').replace('"', '').replace("'", "").encode('utf-8', 'ignore'), 'utf-8', 'ignore')
+        cleanfilename = self.outdir + pathvalidate.sanitize_filename(rawout)
 
         if self.verbose:
-            print ("\tDownloading (%s)" % outfile)
+            print ("\tDownloading (%s)" % cleanfilename)
 
-        if os.path.exists(outfile):
-            print ("\tSKIPPING: %s already exists!" % outfile)
+        if os.path.exists(cleanfilename):
+            print ("\tSKIPPING: %s already exists!" % cleanfilename)
             return 0
 
         if self.download:
             r = requests.get(fileurl, stream=True, verify=self.verify)
             if r.status_code == 200:
-                with open(outfile, 'wb') as f:
+                with open(cleanfilename, 'wb') as f:
                     r.raw.decode_content = True
                     shutil.copyfileobj(r.raw, f)        
         else:
@@ -127,6 +129,8 @@ class ptabgrab(object):
 
         return targetUrl
 
+    #
+    #
     def buildDocsUrl(self, filterarguments):
         testbuilder = ptab.cgi.builder()
         for key, val in filterarguments.iteritems():
@@ -136,6 +140,8 @@ class ptabgrab(object):
                 print ("ERROR: FAILED TO ADD (%s : %s)." % (key, val) )
         return docsURL + testbuilder.getCGIStr()
 
+    #
+    #
     def curlJson(self, targetUrl):
         if self.verbose:
             print ("Getting <%s>" % targetUrl)
@@ -154,22 +160,29 @@ class ptabgrab(object):
 
         return result
 
-
-    def downloadJsonLinks(self, jsonstr):
+    def parseJsonList(self, jsonstr):
         parsedjson = json.loads(jsonstr)
         results = parsedjson.get('results')
 
         if (self.dumpJson):
                     text_file = open("JSONdump.txt", "w")
-                    text_file.write(jsonstr.encode('ascii', 'ignore'))
+                    text_file.write(str(jsonstr.encode('ascii', 'ignore'), 'ascii', 'ignore'))
                     text_file.close()
 
         if (results is None):
-            return 0
+            return []
+        else:
+            return results
 
-        for document in results:
+    #
+    # Downloads all links in the json list
+    #
+    def downloadJsonLinks(self, jsonstr):
+        resultsList = self.parseJsonList(jsonstr)
+
+        for document in resultsList:
             # print ("Number, title: (%s, %s)" % (document['documentNumber'], document['title']))
-            fname_raw = document['documentNumber'] + " - " + document['title']
+            fname_raw = document.get('documentNumber') + " - " + document.get('title')
             fname = fname_raw.replace('.', '') + ".pdf"
 
             if self.verbose:
@@ -184,22 +197,83 @@ class ptabgrab(object):
                         print ("\tURL <%s>" % docurlstr)
                     self.curlFile(docurlstr, fname)
 
-        return len (parsedjson['results'])
+        return len (resultsList)
             
     def getDocsInDocket(self, dktnum):
-        results = self.curlJson( self.getDocumentListURL(dktnum) )
+        ptabJsonList = self.curlJson( self.getDocumentListURL(dktnum) )
 
-        if results:
-            numDocs = self.downloadJsonLinks(results.text)
+        if ptabJsonList:
+            numDocs = self.downloadJsonLinks(ptabJsonList.text)
+
+            if self.verbose:
+                print ("Found %s documents." % numDocs)
+
+            return
+
         else:
             print ("ERROR: Could not read URL")
             return
 
-        if self.verbose:
-            print ("Found %s documents." % numDocs)
 
-        return
-    
+    #
+    # Get a specific paper in a docket
+    def getPaper(self, dktnum, papernum):
+        if self.verbose:
+            print ("Getting Paper (%s) from Docket (%s)" % (papernum, dktnum))
+
+        ptabJsonList = self.curlJson( self.getDocumentListURL(dktnum) )
+
+        if ptabJsonList:
+            docketDocsList = self.parseJsonList(ptabJsonList.text)
+
+            ptabObj = self.findPaper(papernum, docketDocsList)
+            if (ptabObj):
+                downloadUrl = self.getLink(ptabObj)
+
+                if self.verbose:
+                    print ("\tURL <%s>" % downloadUrl)
+
+                fname_raw = ptabObj.get('documentNumber') + " - " + ptabObj.get('title')
+                fname = fname_raw.replace('.', '') + ".pdf"
+                return self.curlFile(downloadUrl, fname)
+
+            else:
+                print ("ERROR: Could not find paper (%s)" % papernum)
+                return 0
+
+        else:
+            print ("ERROR: getPaper() could not read URL for docket")
+            return
+
+    def findPaper(self, paperNumber, docketList):
+        if (len(docketList) > 1):
+            hitList = list(filter(lambda xlist: xlist.get('documentNumber') == paperNumber, docketList))
+
+            if (len(hitList) == 1):
+                return hitList[0];
+            elif (len(hitList > 1)):
+                print ("Warning: findPaper() found more than 1 paper number (%s); using first result" % paperNumber)
+                return hitList[0];
+            else:
+                print ("ERROR: findPaper() could not find paper number (%s)" % paperNumber)
+                return 0
+
+        else:
+            return 0
+
+    def getLink(self, ptabResultObj):
+
+        for link in ptabResultObj.get('links'):
+            if link['rel'] == 'download':
+                # account for an error in formatting that sometimes appears in the ptab json feed
+                return re.sub(r'ptab-api[\\/]+ptab-api', 'ptab-api', link['href'])
+
+        # if program falls out of the for loop
+        return 0
+
+    # 
+    # In development...
+    #
     def searchDocuments(self, filterarguments):
         targetUrl = self.buildDocsUrl(filterarguments)
 
