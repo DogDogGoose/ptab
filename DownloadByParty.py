@@ -19,7 +19,7 @@ parser = argparse.ArgumentParser(description='Grab and properly name documents f
 parser.add_argument('--verbose', '-v', type=bool, default=True, help='Wow much talk.', dest='verbose')
 parser.add_argument('--outdir', '-o', required=False, help='Parent directory to build tree of output docket folders')
 parser.add_argument('--party', '-p', required=True, help='Base name of the party to search for')
-parser.add_argument('--startdate', '-s', required=False, help='Starting date of search, based on filing date of petition')
+parser.add_argument('--startdate', '-s', required=False, help='Starting date of search, based on filing date of petition (Format YYYY-MM-DD)')
 parser.add_argument('--test', action='store_true', help="Test only; don't download PDF files")
 parser.add_argument('--dump', action='store_true', help="Save JSON to file for debug")
 

@@ -7,3 +7,4 @@ temp/
 # ignore temporary project files
 *__pycache__*
 *JSONdump.txt
+*.sqlite

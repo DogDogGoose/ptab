@@ -1,6 +1,9 @@
 
+import sys
 import requests
+import requests_cache
 import string
+import unicodedata
 import json
 import shutil
 import os
@@ -38,6 +41,8 @@ class ptabgrab(object):
         self.outdir = ''
         self.download = True
         self.dumpJson = False
+
+        requests_cache.install_cache(cache_name='ptab_cache', backend='sqlite', expire_after=36000) # expire after 10 hours
         requests.packages.urllib3.disable_warnings()
 
     def __str__(self):
@@ -69,8 +74,11 @@ class ptabgrab(object):
     # used to save files
     #
     def curlFile(self, fileurl, filename):
-        rawout = str(filename.replace('/', '-').replace('"', '').replace("'", "").encode('utf-8', 'ignore'), 'utf-8', 'ignore')
-        cleanfilename = self.outdir + pathvalidate.sanitize_filename(rawout)
+        # filesystype = sys.getfilesystemencoding() # should generally be 'utf-8'
+
+        filteredUnicode = filename.replace('/', '-').replace('"', '').replace("'", "")
+        filteredAscii = unicodedata.normalize('NFKC', filteredUnicode).encode('ascii', 'ignore')
+        cleanfilename = self.outdir + pathvalidate.sanitize_filename(filteredAscii)
 
         if self.verbose:
             print ("\tDownloading (%s)" % cleanfilename)
@@ -80,7 +88,8 @@ class ptabgrab(object):
             return 0
 
         if self.download:
-            r = requests.get(fileurl, stream=True, verify=self.verify)
+            myheaders = {'Accept-Encoding': 'deflate'}
+            r = requests.get(fileurl, stream=True, verify=self.verify, headers=myheaders)
             if r.status_code == 200:
                 with open(cleanfilename, 'wb') as f:
                     r.raw.decode_content = True
@@ -165,8 +174,8 @@ class ptabgrab(object):
         results = parsedjson.get('results')
 
         if (self.dumpJson):
-                    text_file = open("JSONdump.txt", "w")
-                    text_file.write(str(jsonstr.encode('ascii', 'ignore'), 'ascii', 'ignore'))
+                    text_file = open("JSONdump.txt", "a")
+                    text_file.write(str(jsonstr.encode('ascii', 'ignore')).encode('ascii', 'ignore'))
                     text_file.close()
 
         if (results is None):
@@ -304,8 +313,10 @@ class ptabgrab(object):
         for dock in dockets:
             (petitioner, patentowner, dkt, status) = dock[0:4]
             print ("* {0} v {1} ({2}) - {3}".format(petitioner, patentowner, dkt, status))
+            docketOutDir = self.makeSafeFilename("{0}-{1} v {2}".format(dkt, petitioner, patentowner))
+            cleanDocketOutDir = docketOutDir.encode('ascii', 'ignore')
 
-            newdir = os.path.join(baseOutDir, str(dkt.encode('utf-8', 'ignore'), 'utf-8', 'ignore'))
+            newdir = os.path.join(baseOutDir, cleanDocketOutDir)
             self.setOutputDir(newdir)
             self.getDocsInDocket(dkt)
 
@@ -371,7 +382,7 @@ class ptabgrab(object):
         numResults = len(results)
 
         if (self.dumpJson):
-                    text_file = open("JSONdump.txt", "w")
+                    text_file = open("JSONdump.txt", "a")
                     text_file.write(jsonstr.encode('ascii', 'ignore'))
                     text_file.close()
 
@@ -399,3 +410,15 @@ class ptabgrab(object):
         print ("Limit (%s), Offset (%s), Count (%s)" % (currentLimit, currentOffset, currentCount))
 
         return (currentCount, currentOffset + currentLimit)
+
+    #
+    # Make a string safe
+    # 
+    def makeSafeFilename(self, inputFilename):   
+        try:
+            safechars = string.letters + string.digits + " -_."
+            return filter(lambda c: c in safechars, inputFilename)
+
+        except:
+            return ""  
+            pass
