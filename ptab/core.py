@@ -197,7 +197,7 @@ class ptabgrab(object):
 
         for document in resultsList:
             # print ("Number, title: (%s, %s)" % (document['documentNumber'], document['title']))
-            fname_raw = document.get('documentNumber') + " - " + document.get('documentTitleText')
+            fname_raw = document.get('documentNumber').zfill(4) + " - " + document.get('documentTitleText')
             fname = fname_raw.replace('.', '') + ".pdf"
 
             if self.verbose:
