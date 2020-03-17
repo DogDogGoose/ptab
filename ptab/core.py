@@ -1,4 +1,3 @@
-
 import sys
 import requests
 import requests_cache
@@ -16,9 +15,10 @@ import ptab.cgi
 #
 # PTAB API
 # 
-docsURL = 'https://ptabdata.uspto.gov/ptab-api/documents'
-trialsURL = 'https://ptabdata.uspto.gov/ptab-api/trials/'
-dateURL = 'https://ptabdata.uspto.gov/ptab-api/trials'
+baseURL = 'https://developer.uspto.gov/ptab-api/'
+docsURL = 'https://developer.uspto.gov/ptab-api/documents'
+trialsURL = 'https://developer.uspto.gov/ptab-api/proceedings'
+dateURL = 'https://developer.uspto.gov/ptab-api/proceedings'
 
 postfixdocs = '/documents'
 postfixdoczip = '/documents.zip'
@@ -78,7 +78,8 @@ class ptabgrab(object):
 
         filteredUnicode = filename.replace('/', '-').replace('"', '').replace("'", "")
         filteredAscii = unicodedata.normalize('NFKC', filteredUnicode).encode('ascii', 'ignore')
-        cleanfilename = self.outdir + pathvalidate.sanitize_filename(filteredAscii)
+        temp = filteredAscii.decode('utf-8')
+        cleanfilename = self.outdir + pathvalidate.sanitize_filename(temp)
 
         if self.verbose:
             print ("\tDownloading (%s)" % cleanfilename)
@@ -125,12 +126,17 @@ class ptabgrab(object):
             # default to IPR over CBM
             docketstr = "IPR" + dktnum
 
-        targetUrl = trialsURL + docketstr
+        testbuilder = ptab.cgi.builder()
+        if testbuilder.addArgument("proceedingNumber", docketstr):
+            if self.verbose: 
+                print ("Added (%s : %s)." % ('proceedingNumber', docketstr))
+        else:
+            print ("ERROR: FAILED TO ADD (%s : %s)." % (key, val) )
+
+        targetUrl = docsURL + testbuilder.getCGIStr()
 
         if zip:
             targetUrl += postfixdoczip
-        else:
-            targetUrl += postfixdocs
 
         # add a high limit to the results
         # TODO: add iterative paging functionality using offset to page through results
@@ -191,20 +197,18 @@ class ptabgrab(object):
 
         for document in resultsList:
             # print ("Number, title: (%s, %s)" % (document['documentNumber'], document['title']))
-            fname_raw = document.get('documentNumber') + " - " + document.get('title')
+            fname_raw = document.get('documentNumber') + " - " + document.get('documentTitleText')
             fname = fname_raw.replace('.', '') + ".pdf"
 
             if self.verbose:
                 print ("Processing (%s)" % fname)
         
-            for link in document['links']:
-                if link['rel'] == 'download':
-                    # account for an error in formatting that sometimes appears in the ptab json feed
-                    docurlstr = re.sub(r'ptab-api[\\/]+ptab-api', 'ptab-api', link['href'])
+            docID = document.get('documentIdentifier')
+            downloadLink = baseURL + '/documents/{documentIdentifier}/download'.replace('{documentIdentifier}', docID)
+            if self.verbose:
+                print ("\tURL <%s>" % downloadLink)
 
-                    if self.verbose:
-                        print ("\tURL <%s>" % docurlstr)
-                    self.curlFile(docurlstr, fname)
+            self.curlFile(downloadLink, fname)
 
         return len (resultsList)
             
@@ -395,10 +399,9 @@ class ptabgrab(object):
         for proceeding in filteredlist:
             petitionerNameRaw = proceeding.get('petitionerPartyName', '[OMITTED]') 
             poNameRaw = proceeding.get('patentOwnerName', '[OMITTED]') 
-            trialNumber = proceeding.get('trialNumber')
+            trialNumber = proceeding.get('proceedingNumber')
             status = proceeding.get('prosecutionStatus')
         
-            # print ("* %s v %s (%s) - %s" % (petitionerNameRaw, poNameRaw, trialNumber, status))
             dockets.append([petitionerNameRaw, poNameRaw, trialNumber, status])
         
         # Now figure out how many items are left

@@ -3,8 +3,14 @@ temp/
 
 # ignore vim saves
 *~
+*.pyc
+*.DS_Store
 
 # ignore temporary project files
 *__pycache__*
 *JSONdump.txt
 *.sqlite
+*.swp
+
+# ignore virtual env
+venv

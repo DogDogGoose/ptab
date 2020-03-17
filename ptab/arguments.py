@@ -12,7 +12,7 @@ class ptoArgument(object):
         adjustedType = 'arg' + classtype
 
         if adjustedType.upper() == "ARGFILINGPARTY" : return argFilingParty()
-        if adjustedType.upper() == "ARGTRIALNUMBER" : return argTrialNumber()
+        if adjustedType.upper() == "ARGPROCEEDINGNUMBER" : return argProceedingNumber()
         if adjustedType.upper() == "ARGTYPE" : return argType()
         if adjustedType.upper() == "ARGFILINGDATETIME" : return argFilingDatetime()
         if adjustedType.upper() == "ARGFILINGDATETIMEFROM" : return argFilingDatetimeFrom()
@@ -68,9 +68,9 @@ class argFilingParty(ptoArgument):
         self.argument = 'filingParty'
         self.value = ''
 
-class argTrialNumber(ptoArgument):
+class argProceedingNumber(ptoArgument):
     def __init__(self):
-        self.argument = 'trialNumber'
+        self.argument = 'proceedingNumber'
         self.value = ''
 
     def formatDocket(teststr):
