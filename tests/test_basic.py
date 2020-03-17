@@ -31,7 +31,7 @@ if args.dd: myptab.download = False
 if args.dump: myptab.dumpJson = True
 
 if not args.outdir:
-    args.outdir = "../temp/" + args.dkt
+    args.outdir = "../temp/" + args.dkt.upper()
 
 myptab.setOutputDir(args.outdir)
 myptab.getDocsInDocket(args.dkt)

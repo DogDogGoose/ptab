@@ -20,6 +20,9 @@ class ptoArgument(object):
         if adjustedType.upper() == "ARGFILINGDATEFROM" : return argFilingDateFrom()
         if adjustedType.upper() == "ARGLIMIT" : return argLimit()
         if adjustedType.upper() == "ARGOFFSET" : return argOffset()
+        if adjustedType.upper() == "ARGSORTORDER" : return argSortOrder()
+        if adjustedType.upper() == "ARGRECORDSTART" : return argRecordStart()
+        if adjustedType.upper() == "ARGRECORDQUANTITY" : return argRecordQuantity()
 
         assert 0, "Bad argument creation: " + classtype
 
@@ -43,20 +46,37 @@ class argFilingDateFrom(ptoArgument):
         self.argument = 'filingDateFrom'
         self.value = ''
 
+class argRecordQuantity(ptoArgument):
+    def __init__(self):
+        self.argument = 'recordTotalQuantity'
+        self.value = 25
+
+class argRecordStart(ptoArgument):
+    def __init__(self):
+        self.argument = 'recordStartNumber'
+        self.value = 0
+
+class argSortOrder(ptoArgument):
+    def __init__(self):
+        self.argument = 'sortOrderCategory'
+        self.value = 'documentNumber'
+
+    def setValue(self, value):
+        self.value = 'documentNumber'
+
 class argLimit(ptoArgument):
     def __init__(self):
         self.argument = 'limit'
         self.value = ''
 
-        def setValue(self, value):
-                if not value:
-                    self.value = PTAB_MAX_LIMIT
+    def setValue(self, value):
+        if not value:
+            self.value = PTAB_MAX_LIMIT
 
-                if (value > PTAB_MAX_LIMIT):
-                    self.value = PTAB_MAX_LIMIT
-                else:
-                    self.value = value
-
+        if (value > PTAB_MAX_LIMIT):
+            self.value = PTAB_MAX_LIMIT
+        else:
+            self.value = value
 
 class argOffset(ptoArgument):
     def __init__(self):

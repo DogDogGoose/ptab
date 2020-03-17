@@ -15,7 +15,7 @@ import ptab.cgi
 #
 # PTAB API
 # 
-baseURL = 'https://developer.uspto.gov/ptab-api/'
+baseURL = 'https://developer.uspto.gov/ptab-api'
 docsURL = 'https://developer.uspto.gov/ptab-api/documents'
 trialsURL = 'https://developer.uspto.gov/ptab-api/proceedings'
 dateURL = 'https://developer.uspto.gov/ptab-api/proceedings'
@@ -69,6 +69,11 @@ class ptabgrab(object):
     def getNumDocs():
         return 0
 
+    def cleanUnicodeString(self, filename, filterForPath):
+        filteredUnicode = filename.replace('/', '-').replace('"', '').replace("'", "") if (filterForPath) else filename 
+        filteredAscii = unicodedata.normalize('NFKC', filteredUnicode).encode('ascii', 'ignore')
+        return pathvalidate.sanitize_filename(filteredAscii.decode('utf-8'))
+
     # 
     # curlFile
     # used to save files
@@ -76,10 +81,7 @@ class ptabgrab(object):
     def curlFile(self, fileurl, filename):
         # filesystype = sys.getfilesystemencoding() # should generally be 'utf-8'
 
-        filteredUnicode = filename.replace('/', '-').replace('"', '').replace("'", "")
-        filteredAscii = unicodedata.normalize('NFKC', filteredUnicode).encode('ascii', 'ignore')
-        temp = filteredAscii.decode('utf-8')
-        cleanfilename = self.outdir + pathvalidate.sanitize_filename(temp)
+        cleanfilename = self.outdir + self.cleanUnicodeString(filename, 1)
 
         if self.verbose:
             print ("\tDownloading (%s)" % cleanfilename)
@@ -118,7 +120,8 @@ class ptabgrab(object):
 
         # return docsURL + cgimaker.getCGIStr()
 
-    def buildTrialsUrl(self, dktnum, zip=False):
+    def buildTrialsUrl(self, dktnum, startingRecordNumber=0):
+        dktnum = dktnum.upper()
         docketstr = ''
         if re.search(r'(IPR|CBM)20\d{2}-\d{5}', dktnum):
             docketstr = dktnum
@@ -127,21 +130,20 @@ class ptabgrab(object):
             docketstr = "IPR" + dktnum
 
         testbuilder = ptab.cgi.builder()
+        testbuilder.addArgument("sortOrder")
+
         if testbuilder.addArgument("proceedingNumber", docketstr):
             if self.verbose: 
                 print ("Added (%s : %s)." % ('proceedingNumber', docketstr))
         else:
             print ("ERROR: FAILED TO ADD (%s : %s)." % (key, val) )
 
-        targetUrl = docsURL + testbuilder.getCGIStr()
-
-        if zip:
-            targetUrl += postfixdoczip
-
-        # add a high limit to the results
         # TODO: add iterative paging functionality using offset to page through results
-        # targetUrl += "?limit=100"
+        if startingRecordNumber > 0:
+            if self.verbose:
+                print ("Iterating starting with record number (%i)" % startingRecordNumber)
 
+        targetUrl = docsURL + testbuilder.getCGIStr()
         return targetUrl
 
     #
@@ -181,7 +183,8 @@ class ptabgrab(object):
 
         if (self.dumpJson):
                     text_file = open("JSONdump.txt", "a")
-                    text_file.write(str(jsonstr.encode('ascii', 'ignore')).encode('ascii', 'ignore'))
+                    text_file.write(str(jsonstr.encode('ascii', 'ignore')))
+                    # text_file.write(str(jsonstr.encode('ascii', 'ignore')).encode('ascii', 'ignore'))
                     text_file.close()
 
         if (results is None):
@@ -213,7 +216,8 @@ class ptabgrab(object):
         return len (resultsList)
             
     def getDocsInDocket(self, dktnum):
-        ptabJsonList = self.curlJson( self.getDocumentListURL(dktnum) )
+
+        ptabJsonList = self.curlJson( self.buildTrialsUrl(dktnum) )
 
         if ptabJsonList:
             numDocs = self.downloadJsonLinks(ptabJsonList.text)
