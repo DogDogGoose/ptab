@@ -24,6 +24,8 @@ postfixdocs = '/documents'
 postfixdoczip = '/documents.zip'
 # ptabcert = "~/scripts/ptab/ptab.pem"
 
+PTAB_MAX_RESULTS = 25
+
 ###########################
 class ptabgrab(object):
     """
@@ -120,7 +122,7 @@ class ptabgrab(object):
 
         # return docsURL + cgimaker.getCGIStr()
 
-    def buildTrialsUrl(self, dktnum, startingRecordNumber=0):
+    def buildTrialsUrl(self, dktnum, startingRecordNumber = -1):
         dktnum = dktnum.upper()
         docketstr = ''
         if re.search(r'(IPR|CBM)20\d{2}-\d{5}', dktnum):
@@ -139,9 +141,12 @@ class ptabgrab(object):
             print ("ERROR: FAILED TO ADD (%s : %s)." % (key, val) )
 
         # TODO: add iterative paging functionality using offset to page through results
-        if startingRecordNumber > 0:
+        if startingRecordNumber >= 0:
             if self.verbose:
                 print ("Iterating starting with record number (%i)" % startingRecordNumber)
+            testbuilder.addArgument('recordStart', startingRecordNumber)
+            testbuilder.addArgument('recordQuantity', PTAB_MAX_RESULTS)
+
 
         targetUrl = docsURL + testbuilder.getCGIStr()
         return targetUrl
@@ -179,24 +184,21 @@ class ptabgrab(object):
 
     def parseJsonList(self, jsonstr):
         parsedjson = json.loads(jsonstr)
-        results = parsedjson.get('results')
 
         if (self.dumpJson):
-                    text_file = open("JSONdump.txt", "a")
-                    text_file.write(str(jsonstr.encode('ascii', 'ignore')))
-                    # text_file.write(str(jsonstr.encode('ascii', 'ignore')).encode('ascii', 'ignore'))
-                    text_file.close()
+            json_dump_text = jsonstr.encode('ascii', 'ignore')
+            text_file = open("JSONdump.txt", "a")
+            text_file.write(json_dump_text.decode('utf-8'))
+            text_file.close()
 
-        if (results is None):
-            return []
-        else:
-            return results
+        return parsedjson
 
     #
     # Downloads all links in the json list
     #
     def downloadJsonLinks(self, jsonstr):
-        resultsList = self.parseJsonList(jsonstr)
+        jsondata = self.parseJsonList(jsonstr)
+        resultsList = jsondata.get('results')
 
         for document in resultsList:
             # print ("Number, title: (%s, %s)" % (document['documentNumber'], document['title']))
@@ -213,24 +215,41 @@ class ptabgrab(object):
 
             self.curlFile(downloadLink, fname)
 
-        return len (resultsList)
+        retval = dict()
+        retval['downloadedRecords'] = len (resultsList)
+        retval['totalRecords'] = jsondata.get('recordTotalQuantity')
+        return retval
             
+    #
+    # Downloads all documents in the docket
+    # 
     def getDocsInDocket(self, dktnum):
 
-        ptabJsonList = self.curlJson( self.buildTrialsUrl(dktnum) )
+        allDocsDownloaded = False 
+        currentRecord = 0
 
-        if ptabJsonList:
-            numDocs = self.downloadJsonLinks(ptabJsonList.text)
+        while not allDocsDownloaded:
+            ptabJsonList = self.curlJson( self.buildTrialsUrl(dktnum, currentRecord) )
 
-            if self.verbose:
-                print ("Found %s documents." % numDocs)
+            if ptabJsonList:
+                status = self.downloadJsonLinks(ptabJsonList.text)
+                numDocs = status['downloadedRecords']
+                totalDocs = status['totalRecords']
 
-            return
+                if self.verbose:
+                    print ("Found %s documents." % numDocs)
+                    print ("Found %s total docs in docket." % totalDocs)
 
-        else:
-            print ("ERROR: Could not read URL")
-            return
+                if currentRecord >= totalDocs:
+                    allDocsDownloaded = True
+                else:
+                    currentRecord += PTAB_MAX_RESULTS
 
+                next
+
+            else:
+                print ("ERROR: Could not read URL")
+                next
 
     #
     # Get a specific paper in a docket
@@ -241,7 +260,8 @@ class ptabgrab(object):
         ptabJsonList = self.curlJson( self.getDocumentListURL(dktnum) )
 
         if ptabJsonList:
-            docketDocsList = self.parseJsonList(ptabJsonList.text)
+            rawresults = self.parseJsonList(ptabJsonList.text)
+            docketDocsList = rawresults.get('results')
 
             ptabObj = self.findPaper(papernum, docketDocsList)
             if (ptabObj):
@@ -390,8 +410,10 @@ class ptabgrab(object):
         numResults = len(results)
 
         if (self.dumpJson):
+                    json_dump_text = jsonstr.encode('ascii', 'ignore')
+
                     text_file = open("JSONdump.txt", "a")
-                    text_file.write(jsonstr.encode('ascii', 'ignore'))
+                    text_file.write(json_dump_text.decode('utf-8'))
                     text_file.close()
 
         if (results is None):
