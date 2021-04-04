@@ -206,7 +206,7 @@ class ptabgrab(object):
             fname = fname_raw.replace('.', '') + ".pdf"
 
             if self.verbose:
-                print ("Processing (%s)" % fname)
+                print ("Processing (%s)" % self.cleanUnicodeString(fname, 0))
         
             docID = document.get('documentIdentifier')
             downloadLink = baseURL + '/documents/{documentIdentifier}/download'.replace('{documentIdentifier}', docID)
